@@ -1,4 +1,4 @@
-Objectid;Globalid;Registro;Actividad.económica;Telefono;Correo.electronico;N.establecimiento;Encuestador;Otra.actividad.economica;Cod.establecimiento;Letrero;Letrero.pintado;Entrada;Celular;Celular.secundario;Zona;Palabra.clave;X;Y
+Objectid;Globalid;Registro;Actividad.economica;Telefono;Correo.electronico;N.establecimiento;Encuestador;Otra.actividad.economica;Cod.establecimiento;Letrero;Letrero.pintado;Entrada;Celular;Celular.secundario;Zona;Palabra.clave;X;Y
 3;9b861b1c-a640-4e16-878c-24f4d4d5fc6a;8/06/2020 20:38;Otro;0;NA;0;2;NA;15206_1;no;no;Pequeña;0;0;FISDECO;Indefinido;-74.141005;4.548814
 4;d371a6c8-50e1-4b97-8f8a-f778248ad897;8/06/2020 20:52;Comercial;0;NA;panadería y Cafetería YAKI;2;NA;14035_1;si;no;Estandar;0;0;FISDECO;Panadería;-74.141122;4.54902
 5;116f0c17-fc0b-4981-8b3e-532cb263a66a;8/06/2020 20:56;Servicios;0;NA;Centro Electrónico El Lucero;2;NA;14035_2;si;no;Estandar;3144453641;0;FISDECO;Taller;-74.141513;4.548987
