@@ -1,0 +1,329 @@
+---
+title: "Proyecto Repilo"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+    vertical_layout: fill
+    source_code: https://github.com/brianamaya01/REPILOS
+runtime: shiny 
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+```
+
+```{r global, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(leaflet)
+library(sf)
+library(htmltools)
+library(plotly)
+library(DT)
+library(scales)
+library(shinydashboard)
+```
+
+```{r, cache=TRUE,include=FALSE}
+baserepilo <- read_excel("baserepilo.xlsx")
+names(baserepilo) <- names(baserepilo)%>% 
+        str_to_title() # se modifican los nombres de la baserepilo a minuscula con la primera letra en mayuscula.
+load("shapeFile.RData") # este archivo se guarda en en el entorno como area_estudio
+```
+
+```{css}
+.navbar-inverse {
+  background-color: rgb(143, 10, 10 );
+  border-color: black;
+}
+
+.chart-title {
+    font-size: 50px;
+    color: #fd7e14;
+}
+
+.section.sidebar {
+  top: 51px;
+
+  /* background-color: #f5f5f5;
+                */
+  background-color: #f8f8f8;
+}
+```
+
+# Georreferenciación
+
+```{r}
+palabra_clave1 <- baserepilo%>%
+        count(Palabra.clave)%>% 
+        arrange(desc(n))
+n_imagen<- baserepilo %>% 
+        select(Cod.establecimiento) %>% 
+        mutate(orden = str_remove_all(Cod.establecimiento,"_")) %>% 
+        arrange(orden)
+```
+
+## Column {.sidebar}
+
+```{r}
+h3("Zona de influencia")
+selectInput("palabra_clave","Tipo de Establecimiento",palabra_clave1[1])
+radioButtons("metodo", "Método", c("Normal" = "normal","Cluster" = "cluster"))
+
+```
+</br>
+```{r}
+h3("Establecimiento")
+selectInput("image1","Imagen:",NULL)
+
+observeEvent(input$palabra_clave,{
+  list <-baserepilo %>% 
+  select(Palabra.clave, Cod.establecimiento) %>%
+  filter(Palabra.clave == input$palabra_clave) %>% 
+  mutate(orden = str_remove_all(Cod.establecimiento,"_")) %>% 
+  arrange(orden)
+  
+  updateSelectInput(session,'image1',choices = list$Cod.establecimiento)
+  })
+
+```
+</br></br></br></br></br></br></br></br></br>
+&nbsp;&nbsp;![](https://github.com/brianamaya01/REPILOS/blob/master/Dashboard/Logos/Unipiloto.png?raw=true)&nbsp;&nbsp;&nbsp;&nbsp;![](https://github.com/brianamaya01/REPILOS/blob/master/Dashboard/Logos/Santo_tomas.png?raw=true)
+
+## Palabra clave {data-width=600}
+
+```{r}
+
+leafletOutput("leaflet_map", width = "100%", height = "800") #Salida del mapa 
+output$leaflet_map<- renderLeaflet({
+pal = colorFactor(palette = "Paired", domain = baserepilo$Palabra.clave) #Color del mapa
+
+base <- baserepilo %>% 
+        filter(Palabra.clave == input$palabra_clave) # Condicionar la base con la lista llamada palabra_clave
+
+labels_map <- paste("<p>", "Actividad Económica:",base$Actividad.economica, "</p>",
+                "<p>", "Nombre: ",base$N.establecimiento,"</p>",
+                "<p>", "Código: ",base$Cod.establecimiento,"</p>",
+                "<p>", "Zona: ",base$Zona,"</p>" 
+                ) # Código Html para mostrar en el mapa los metadatos
+Atributos <- leaflet() %>% 
+        addTiles() %>% 
+        addProviderTiles(provider = "CartoDB.DarkMatterNoLabels") %>% # mapa base
+        addPolygons(data = area_estudio$geometry,
+                    weight = 1,
+                    smoothFactor = 0.5,
+                    color = "white",
+                    fillOpacity = 0.05) # Se añaden los polígonos de la base area_estudio
+
+switch(input$metodo,
+       normal = Atributos <- addCircleMarkers(Atributos,data = base,
+                                lng = base$X, 
+                                lat = base$Y,
+                                color = pal(input$palabra_clave),
+                                label = lapply(labels_map,HTML)), # Se plotea el método normal
+       cluster = Atributos <- addCircleMarkers(Atributos,data = base,
+                          lng = base$X, 
+                          lat = base$Y,
+                          clusterOptions = markerClusterOptions())) # Se plotea el método cluter
+
+print(Atributos)
+})
+
+```
+
+## space {data-width=25}
+
+## Image {data-width=375}
+
+###
+```{r}
+uiOutput("image") #Salida de las imágenes
+
+output$image<- renderUI({
+        prueba1 <-baserepilo %>%
+                filter(Cod.establecimiento == input$image1) %>%
+                #Se condiciona la base prueba 1 con la lista llamada imagen1
+                transmute(Fotos = str_c("https://github.com/brianamaya01/REPILOS/blob/master/Fotos/",
+                      Cod.establecimiento,".PNG?raw=true"))
+                #Se crea una variable llamada fotos que contiene todas las direcciones de las Fotos en Github
+        tags$img(src=prueba1$Fotos, width = 425, height = 375)
+        #Cogigo html que visualiza las fotos
+        })
+```
+
+### {data-height=300}
+
+```{r}
+DT::renderDataTable({
+        data<- baserepilo %>%
+                select(Cod.establecimiento,N.establecimiento,
+               Palabra.clave, Actividad.economica, Zona) %>%
+                filter(Cod.establecimiento== input$image1) %>% 
+                gather(Variables, Resultado, N.establecimiento,
+               Palabra.clave, Actividad.economica, Zona) %>% 
+                select(-Cod.establecimiento) 
+        #Se organiza la base para correr las variables correspondientes
+        names(data) <- c("","")
+  DT::datatable(data,
+    rownames = FALSE,options = list(
+    bPaginate = FALSE,dom = 'ltipr'
+  )) # se pasa la base data a una datatable
+})
+
+```
+
+
+# Gráficas
+
+```{r}
+Categorias <- baserepilo %>% 
+                select(Palabra.clave, Actividad.economica, 
+                       Letrero, Letrero.pintado, Entrada,Zona) %>% 
+                gather(Variables, Valor, Actividad.economica,
+                       Letrero, Letrero.pintado,Entrada)
+```
+
+
+## Column {.sidebar}
+```{r}
+h3("Variables")
+selectInput("categoria","Categoria:", choices = unique(Categorias$Variables))
+selectInput("palabraclave","Tipo de Establecimiento", unique(palabra_clave1$Palabra.clave))
+radioButtons("metodo1", "Método:", c("All" = "all","Zona" = "zona"))
+```
+</br></br></br></br></br></br></br></br></br></br></br></br></br>
+&nbsp;&nbsp;![](https://github.com/brianamaya01/REPILOS/blob/master/Dashboard/Logos/image4.png?raw=true)&nbsp;&nbsp;&nbsp;&nbsp;![](https://github.com/brianamaya01/REPILOS/blob/master/Dashboard/Logos/image6.png?raw=true)
+
+## plot 
+```{r}
+
+plotlyOutput("plot", height = 650) # Salida de la gráfica
+
+output$plot <- renderPlotly({
+        
+        base2 <- Categorias %>% 
+                dplyr::filter(Variables == input$categoria) %>% 
+                count(Palabra.clave,input$categoria,Valor) %>%
+                mutate(Palabra.clave= fct_reorder(Palabra.clave, n, sum))
+        #Se crea la base2 para que se visualice todos los datos
+        base3 <-Categorias %>% 
+                dplyr::filter(Variables == input$categoria) %>% 
+                count(Zona, Palabra.clave,input$categoria,Valor) %>%
+                mutate(Palabra.clave= fct_reorder(Palabra.clave, n, sum))
+        #Se crea la base3 para que se visualice la gráfica por zonas
+        
+        plot1 <- function(base){
+                ggplot(base, aes(n,Palabra.clave, fill = Valor))+
+                geom_col(col= "black")+
+                scale_fill_brewer(" ",palette = "Reds", direction = -1)+
+                labs(x = "Numero de Establecimientos", y= " ")+
+                theme_bw()+
+                theme(legend.position = "bottom", legend.box = "vertical", 
+                panel.background = element_rect(fill = "transparent"),
+                plot.background = element_rect(fill = "transparent", color = NA), 
+                axis.text.x = element_blank(),
+                panel.grid.major = element_blank(), 
+                panel.grid.minor = element_blank(),
+                legend.background = element_rect(fill = "transparent"), 
+                legend.box.background = element_rect(fill = "transparent"),
+                legend.title = element_blank()) 
+        } # Se crea una función llamada base que grafique el número de establecimientos por
+          # por palabra clave filtrado por valor con su respectivo estilo. 
+        
+ switch(input$metodo1,
+        all = plot2 <- plot1(base2), # grafica la función con la base2
+        zona = plot2 <- plot1(base3) + facet_grid(.~Zona))
+        # grafica la función con la base3 divido por zona 
+        
+ggplotly(plot2) %>% 
+        layout(legend = list(x= 0.8,y = 0.01)) 
+        # Se arregla la posición de la leyenda en la parte inferior derecha
+         })
+
+```
+
+
+## Total {data-width=300}
+
+```{r}
+plotlyOutput("TEntrada",width = "300px",height = "200px") #Salida de la gráfica
+output$TEntrada <- renderPlotly({
+        tdb_entrada <-baserepilo %>%
+                filter(Palabra.clave == input$palabraclave) %>%
+                count(Palabra.clave, Entrada)%>%
+                mutate(porcentaje = n/sum(n))
+        #Crea la base tdb_entrada que contiene el porcentaje por tipo de establecimiento
+        tpentrada <- plot_ly(tdb_entrada, labels = ~Entrada, values =  ~n,
+               marker = list( colors = c('rgb(255, 223, 211)','rgb(143, 10, 10 )')),
+               type = "pie",showlegend = FALSE) %>%
+                layout(title = list(text = "Tipo de Entrada",y= 0.01,x=0.55),
+                       plot_bgcolor  = "rgba(0, 0, 0, 0)",
+                       paper_bgcolor = "rgba(0, 0, 0, 0)",
+                       fig_bgcolor   = "rgba(0, 0, 0, 0)")
+        #Se crea el gráfico tpentrada
+})
+
+```
+
+```{r}
+
+plotlyOutput("TP_Letrero",width = "300px",height = "200px")
+output$TP_Letrero <- renderPlotly({
+        tdb_letrero <-baserepilo %>%
+                filter(Palabra.clave == input$palabraclave) %>%
+                mutate(Letrero = ifelse(Letrero == "si","Posee letrero",
+                                        ifelse(Letrero == "no","No posee letrero",0))) %>% 
+                count(Palabra.clave, Letrero)%>%
+                mutate(porcentaje = n/sum(n))
+        #se crea la base tdb_entrada que contiene el porcentaje por tipo de establecimiento
+        tpletrero <- plot_ly(tdb_letrero, labels = ~Letrero, values =  ~n,
+               marker = list( colors = c('rgb(255, 223, 211)','rgb(143, 10, 10 )'))
+               ,type = "pie",showlegend = FALSE) %>% 
+                layout(title = list(text ="Letrero",y= 0.01,x=0.55),
+                       plot_bgcolor  = "rgba(0, 0, 0, 0)",
+                       paper_bgcolor = "rgba(0, 0, 0, 0)",
+                       fig_bgcolor   = "rgba(0, 0, 0, 0)")
+        #Se crea el gráfico tpentrada tpletrero
+})
+```
+
+```{r}
+plotlyOutput("TP_PLetrero",width = "300px",height = "200px")
+output$TP_PLetrero <- renderPlotly({
+        tdb_pletrero <-baserepilo %>%
+                filter(Palabra.clave == input$palabraclave) %>%
+                mutate(Letrero.pintado = ifelse(Letrero.pintado == "si","Posee letrero pintado",
+                                        ifelse(Letrero.pintado== "no","No posee letrero pintado",0))) %>% 
+                count(Palabra.clave, Letrero.pintado)%>%
+                mutate(porcentaje = n/sum(n))
+        #Se crea la base tdb_entrada que contiene el porcentaje por tipo de establecimiento
+        tpletrero <- plot_ly(tdb_pletrero, labels = ~Letrero.pintado, values =  ~n,
+               marker = list( colors = c('rgb(255, 223, 211)','rgb(143, 10, 10 )'))
+               ,type = "pie",showlegend = FALSE) %>% 
+                layout(title = list(text ="Letrero pintado",y= 0.01,x=0.55),
+                       plot_bgcolor  = "rgba(0, 0, 0, 0)",
+                       paper_bgcolor = "rgba(0, 0, 0, 0)",
+                       fig_bgcolor   = "rgba(0, 0, 0, 0)")
+        #Se crea el gráfico tpletrero
+})
+```
+
+# Datos 
+
+```{r}
+datatable(
+  baserepilo,
+  extensions = 'Buttons', options = list(
+    dom = 'Bfrtip',
+    buttons = 
+      list('copy', 'print', list(
+        extend = 'collection',
+        buttons = c('csv', 'excel', 'pdf'),
+        text = 'Download'
+      ))
+    
+  )
+)
+```
+
