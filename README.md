@@ -7,5 +7,3 @@ Este repositorio posee los metadatos del Proyecto Repilo realizado por entre el 
 2. [Base de datos](https://github.com/brianamaya01/REPILOS/tree/master/Datos).
 3. [Mapas](https://github.com/brianamaya01/REPILOS/tree/master/Mapas).
 4. [Fotos de los establecimientos comerciales](https://github.com/brianamaya01/REPILOS/tree/master/Fotos).
-
-*Actualmente la elaboración del documento se encuentra en proceso. Por lo tanto, en una proxima actualización se pondran los enlaces de los documentos para que el lector pueda tener toda la información posible.*  
